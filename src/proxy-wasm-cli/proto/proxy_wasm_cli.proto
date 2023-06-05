@@ -1,0 +1,136 @@
+syntax = "proto3";
+
+package proxy_wasm_cli;
+
+// import "google/protobuf/any.proto";
+import "google/protobuf/timestamp.proto";
+
+
+// The greeting service definition.
+service WasmHost {
+  // Sends a greeting
+  rpc ListInstances (WasmListInstanceRequest) returns (WasmListInstanceReply) {}
+  rpc LaunchInstance (WasmLaunchInstanceRequest) returns (WasmLaunchInstanceReply) {}
+  rpc SendTraffic (WasmSendTrafficRequest) returns (WasmSendTrafficReply) {}
+  rpc WasmSettings (WasmSettingsRequest) returns (WasmSettingsReply) {}
+}
+
+// The request message containing the user's name.
+message WasmListInstanceRequest {
+  string filter = 1;
+}
+
+message WasmVmInfo {
+  string key = 1;
+  string project = 2;
+  string name = 3;
+  google.protobuf.Timestamp create_ts = 4;
+
+}
+// The response message containing the greetings
+message WasmListInstanceReply {
+  // google.protobuf.Any payload = 2;
+  repeated WasmVmInfo vms = 1;
+  string error = 2;
+}
+
+enum WASM_LOG_LEVEL {
+  WASM_LOGLEVEL_INVALID = 0;
+  WASM_LOGLEVEL_WARNING = 1;
+  WASM_LOGLEVEL_TRACE = 2;
+  WASM_LOGLEVEL_DEBUG = 3;
+  WASM_LOGLEVEL_INFO = 4;
+  WASM_LOGLEVEL_ERROR = 5;
+  WASM_LOGLEVEL_CRITICAL = 6;
+}
+
+
+message WasmLaunchInstanceRequest {
+  string name = 1;
+  string root_id = 2;
+  string configuration = 3;
+  enum WASM_RUNTIME {
+    WASM_RUNTIME_NONE = 0;
+    WASM_RUNTIME_WASMEDGE = 1;
+    WASM_RUNTIME_WAMR = 2;
+    WASM_RUNTIME_WASMTIME = 3;
+  }
+  WASM_RUNTIME runtime = 4;
+  string wasm_file = 5;
+  WASM_LOG_LEVEL log_level = 6;
+}
+
+message WasmLaunchInstanceReply {
+  bool success = 1;
+  string error = 2;
+}
+
+// message IpAddress {
+//   oneof ip_addr {
+//     fixed32 v4 = 1;
+//     bytes v6 = 2;
+//   }
+// }
+
+message Payload {
+  uint32 payload_length = 1;
+  optional bytes payload_data = 2;
+}
+
+message HTTPKeyVal {
+  string key = 1;
+  string value = 2;
+}
+
+enum HTTPMethod {
+  HTTP_NONE = 0;
+  HTTP_GET = 1;
+  HTTP_POST = 2;
+  HTTP_PUT = 3;
+  HTTP_DELETE = 4;
+}
+
+enum HTTPScheme {
+  SCHEME_NONE = 0;
+  SCHEME_HTTP = 1;
+  SCHEME_HTTPS = 2;
+}
+
+message wasmHTTPPacket {
+  string sip = 1;
+  string dip = 2;
+  uint32 sp = 3;
+  uint32 dp = 4;
+  string host = 5;
+  HTTPScheme scheme = 6;
+  string uri_path = 7;
+  HTTPMethod method = 8;
+  repeated HTTPKeyVal query_params = 9;
+  repeated HTTPKeyVal headers = 10;
+  Payload payload = 11;
+  bool forward_direction = 12;
+  uint64 delta_ms = 13;
+}
+
+message WasmSendTrafficRequest {
+  string project = 1;
+  string vm_name = 2;
+  repeated wasmHTTPPacket packets = 3;
+}
+
+message WasmSendTrafficReply {
+  bool success = 1;
+  string error = 2;
+}
+
+message WasmSettingsRequest {
+  string project = 1;
+  string vm_name = 2;
+  WASM_LOG_LEVEL log_level = 3;
+}
+
+message WasmSettingsReply {
+  bool success = 1;
+  string error = 2;
+  WASM_LOG_LEVEL log_level = 3;
+}
