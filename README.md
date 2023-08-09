@@ -129,3 +129,202 @@ service WasmHost {
 6. If a VM does not implement a specific call, then the reqeust flow just continues.
 
 ![Proxy-WASM-Request-Flow-Not-Implemented](https://github.com/bhakta0007/proxy-wasm-cpp-host/assets/18511513/a788a8a5-9d73-4aac-b670-1250d45003cd)
+
+
+
+# C Library using proxy-wasm-cpp-host
+
+This section describes the details of the C library. The C Library is provided as a wrapper on top of the CPP implementation.
+
+
+## Building the library
+
+
+-  Build the individual wasm runtime libraries/dependencies
+```
+ bazel build --compilation_mode=dbg --subcommands --verbose_failures //:wasmedge_lib  --strip=never
+ bazel build --compilation_mode=dbg --subcommands --verbose_failures //:wasmedge_lib  --strip=never
+ bazel build --compilation_mode=dbg --subcommands --verbose_failures //:wasmtime_lib  --strip=never
+ bazel build --compilation_mode=dbg --subcommands --verbose_failures //external:wasmedge  --strip=never
+ bazel build --compilation_mode=dbg --subcommands --verbose_failures //:base_lib  --strip=never
+ bazel build --compilation_mode=dbg --subcommands --verbose_failures @com_github_bytecodealliance_wasmtime//:rust_c_api  --strip=never
+```
+
+- Build the bridge
+
+```
+bazel build --cxxopt=-std=c++17 --subcommands --verbose_failures //src/proxy-wasm-cli:proxy_wasm_bridge
+```
+
+update: Use the ./build_bridge.sh which has the above commands in it
+
+
+- And finally run make to build the c test program that to demonstrate the functionality
+
+```
+make
+```
+
+
+## Proxy WASM - CPP Data Structures
+
+This section summarizes the existing data structures in the CPP module
+
+### Wasm VM
+
+Defined in: include/proxy-wasm/wasm_vm.h "class WasmVm {"
+
+Description: This class defines the interface that a runtime needs to implement. Each runtime has a createVM function that returns a WasnVn object.
+
+
+### WasmBase and Wasm
+
+Defined in: include/proxy-wasm/wasm.h "class WasmBase"  / src/proxy-wasm-cli/proxy_wasm_includes.h "class Wasm : public WasmBase"
+Description: Manages the Host Side of the WASM interface
+
+
+### Context
+
+Defined in: proxy_wasm_includes.h:: class Context : public ContextBase
+
+Description: Context is the data structure that holds all the information between the Host and the WASM VM. It houses a bunch of function vectors, that are used as call-ins and call-outs between the Host and the WASM-VM. There are two types of contexts:
+
+- Root Context: Root Context is created at the start of the WASM-VM life-cycle. The root has the same life-span as that of the VM. All the initial Host<>VM interactions are performed through the root context. The root context outlives a request.
+- Stream Context: Is created when a new stream comes into the VM. The life-span of the stream context matches the life-span of the stream. All the HOST<>VM interactions during the life-cycle of the stream are done using the Stream context. The stream context is destroyed when the stream ends. Every stream results in creation of a corresponding unique stream context.
+
+Both the Root and Stream context data-structures have function pointers that are called as part of the interaction sequence.
+
+Context stores all the VM to Host function pointers - that must be supplied by the host layer
+
+
+Here is a relevant comment from the code:
+
+```
+/**
+ * ContextBase is the interface between the VM host and the VM. It has several uses:
+ *
+ * 1) To provide host-specific implementations of ABI calls out of the VM. For example, a proxy
+ * which wants to provide the ability to make an HTTP call must implement the
+ * ContextBase::httpCall() method.
+ *
+ * 2) To call into the VM. For example, when the above mentioned httpCall() completes, the host must
+ * call ContextBase::onHttpCallResponse(). Similarly, when a new HTTP request arrives and the
+ * headers are available, the host must create a new ContextBase object to manage the new stream and
+ * call onRequestHeaders() on that object which will cause a corresponding Context to be allocated
+ * in the VM which will receive the proxy_on_context_create and proxy_on_request_headers calls.
+ *
+ * 3) For testing and instrumentation the methods of ContextBase can be replaces or augmented.
+```
+
+The implementation has a single ContextBase (include/proxy-wasm/context.h) class that is used to create a Context (src/proxy-wasm-cli/proxy_wasm_includes.h) class - which is created for both Root and Stream context. There are flags in the Context that indicate if the context is a Root or Stream.
+
+
+
+## Proxy WASM Bridge
+
+This is the main cpp library that is built out of the CPP source. This library has dependency on the underlying runtime libraries that are also available as bazel targets. Two new files are introduced for this library:
+
+proxy_wasm_bridge.cc - The bridge between C++ and C worlds
+proxy_wasm_bridge.h - Header files
+
+
+## C Sample Host implementation
+
+The C implementation uses the proxm_wasm_bridge - which is a CPP library exposing C callable functions
+
+To build:
+
+```
+./build_bridge.sh
+```
+
+
+### C Data structures
+
+#### wasm_integration_fns_t
+
+integration config is global for all WASM functionality
+
+1. trace: Function to emit a trace
+2. error: Function to emit a level
+3. get_log_level: Gets the integration log level
+4. set_log_level: Sets the integration log level
+
+#### wasm_vm_to_host_fns_t
+
+All these functions are at the context level (either root or stream)
+
+
+  1. log_str: Logs a string
+  2. get_property: Get the value of a property:
+  3. error: Log error
+  4. add_header_map_value: For a given header type (request/response/etc), set a key/value pair
+  5. get_header_map_value: For a given header type (request/response/etc), get a key/value pair
+  6. get_header_map_pairs: For a given header type (request/response/etc), get all key/value pairs
+  7. get_current_time_ns: Get current time in ns
+  8. get_monitonic_time_ns: Get the monitonic time in ns
+
+
+Note: Other vectors in src/proxy-wasm-cli/proxy_wasm_includes.h::Context are not yet implemented. They can be added on a need-basis
+
+#### wasm_vm_config_t
+
+Holds the Configurations for the VM
+
+1. project_name: Name of the project (Also used as root_id inside the lib)
+2. vm_name: Name of the VM
+3. code: Union of a file-name / bytes
+4. code_type: Indicates the type of the code
+5. log_level: Log level for the VM
+6. runtime: Runtime used by the VM
+7. host_functions: Set of host functions that VM can call
+8. integration_functions: Set of integration functions that the VM can call
+
+
+#### wasm_c_vm_t
+
+wasm_c_vm_t holds all the information related to a WASM VM.
+
+It has the following fields:
+
+1. magic: Set to 0xc001d00d
+2. context: Void pointer, holds cpp lib context. Not to be touched by C layer.
+3. wasm_vm_config_t: Pointer to config structure
+
+
+
+##### wasm_c_vm_t * wasm_launch_instance(wasm_vm_config_t *config)
+Launch a WASM VM using the provided configuration and returns the pointer to the wasm_vm_t.
+
+
+1. Calls the Specific runtime code to create the VM Data structure
+2. Loads the WASM Code - using the VM code in the config
+3. Configures the log level in the VM - based on the config
+
+##### wasm_err_t * wasm_destroy_vm(wasm_c_vm_t *)
+
+Note: This is yet to be implemented
+
+
+##### wasm_stream_t *wasm_create_stream(wasm_vm_t *cVm, void *host_context);
+
+Host must call this funciton on arrival of a new stream. The bridge will create a VM context
+(based on the VM root context) and call onCreate vector which will land inside the WASM VM.
+
+Host can provide a context that will be returned back to the host during callbacks.
+
+The bridge will return back a wasm_stream_t pointer
+
+
+#####   wasm_bool_t (*on_done)(struct wasm_stream_t *stream);
+Host must call this function once the stream ends (or is reset). At this point, the stream information
+is not expected to change.
+
+#####   void (*on_log)(struct wasm_stream_t *stream);
+
+Host must call this function after on_done. This is the place to do any logging
+
+#####   void (*on_delete)(struct wasm_stream_t *stream);
+
+Host must call this function after on_log. This is the last handler to be called for the stream. All
+data-structures related to the stream will be destroyed/freed at this point.

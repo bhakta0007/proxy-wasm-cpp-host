@@ -25,6 +25,7 @@
 #include "include/proxy-wasm/wamr.h"
 #include "src/shared_data.h"
 #include "src/shared_queue.h"
+#include "proxy_wasm_bridge.h"
 namespace proxy_wasm_host
 {
 using proxy_wasm::ContextBase;
@@ -48,13 +49,6 @@ using proxy_wasm::MetricType;
 
 class Wasm;
 
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_YELLOW  "\x1b[33m"
-#define ANSI_COLOR_BLUE    "\x1b[34m"
-#define ANSI_COLOR_MAGENTA "\x1b[35m"
-#define ANSI_COLOR_CYAN    "\x1b[36m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
 // auto colorT = std::make_tuple(ANSI_COLOR_RED, ANSI_COLOR_GREEN, ANSI_COLOR_YELLOW, ANSI_COLOR_BLUE, ANSI_COLOR_MAGENTA, ANSI_COLOR_CYAN);
 
 
@@ -128,6 +122,7 @@ struct HeaderMap {
   }
 };
 
+// BHAKTA-TODO: Move this context out to the bridge.cc?
 class Context : public ContextBase
 {
 public:
@@ -135,7 +130,7 @@ public:
   Context();
   Context(Wasm *wasm);
   Context(Wasm *wasm, const std::shared_ptr<PluginBase> &plugin);
-  Context(Wasm *wasm, uint32_t parent_context_id, const std::shared_ptr<PluginBase> &plugin, std::string project, std::string vm_name);
+  Context(Wasm *wasm, Context *root_context, const std::shared_ptr<PluginBase> &plugin, std::string project, std::string vm_name, void *host_ctx, bool isStream);
 
   // extend class utility functions
   Wasm *wasm() const;
@@ -143,6 +138,7 @@ public:
   Context *root_context() const;
 
   void error(std::string_view message) override;
+  void InitializeHostFunctions(void);
 
   // local reply handler
   void onLocalReply();
@@ -150,22 +146,25 @@ public:
   //
   // General Callbacks.
   //
-  proxy_wasm::WasmResult log(uint32_t /*log_level*/, std::string_view message) override {
-    auto new_log = std::string(message);
-    std::cout << ANSI_COLOR_RED << " [" << project << ":" << vm_name << "] " << ANSI_COLOR_RESET << new_log << std::endl;
-    return WasmResult::Ok;
-  }
+  proxy_wasm::WasmResult log(uint32_t /*log_level*/, std::string_view message) override;
+  // {
+  //   auto new_log = std::string(message);
+  //   std::cout << ANSI_COLOR_RED << " [" << project << ":" << vm_name << "] " << ANSI_COLOR_RESET << new_log << std::endl;
+  //   return WasmResult::Ok;
+  // }
 
-  uint64_t getCurrentTimeNanoseconds() override {
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(
-               std::chrono::system_clock::now().time_since_epoch())
-        .count();
-  }
-  uint64_t getMonotonicTimeNanoseconds() override {
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(
-               std::chrono::steady_clock::now().time_since_epoch())
-        .count();
-  }
+  uint64_t getCurrentTimeNanoseconds() override;
+  // {
+  //   return std::chrono::duration_cast<std::chrono::nanoseconds>(
+  //              std::chrono::system_clock::now().time_since_epoch())
+  //       .count();
+  // }
+  uint64_t getMonotonicTimeNanoseconds() override;
+  // {
+  //   return std::chrono::duration_cast<std::chrono::nanoseconds>(
+  //              std::chrono::steady_clock::now().time_since_epoch())
+  //       .count();
+  // }
 
   // std::string_view getConfiguration() override;
 
@@ -191,24 +190,26 @@ public:
   // proxy_wasm::WasmResult getSharedData(std::string_view key, std::pair<std::string, uint32_t /* cas */> *data) override;
 
   // // Header/Trailer/Metadata Maps
-  proxy_wasm::WasmResult addHeaderMapValue(WasmHeaderMapType type, std::string_view key, std::string_view value) override {
-    std::unordered_map<std::string, std::string> headers;
-    std::cout << "addHeaderMapValue " << key.data() << " = " << value.data() << std::endl;
-    headers[key.data()] = value.data();
-    this->setHeaders(headers, false, false);
-    return WasmResult::Ok;
-  }
+  proxy_wasm::WasmResult addHeaderMapValue(WasmHeaderMapType type, std::string_view key, std::string_view value) override;
+  // {
+  //   std::unordered_map<std::string, std::string> headers;
+  //   std::cout << "addHeaderMapValue " << key.data() << " = " << value.data() << std::endl;
+  //   headers[key.data()] = value.data();
+  //   this->setHeaders(headers, false, false);
+  //   return WasmResult::Ok;
+  // }
 
-  proxy_wasm::WasmResult getHeaderMapValue(WasmHeaderMapType type, std::string_view key, std::string_view *result) override {
-    for (const auto& x: this->in_headers){
-      if (x.first == key.data()) {
-        *result = x.second;
-        break;
-      }
-    }
-    // std::cout << "getHeaderValue" << static_cast<int>(type) << " key " << key.data() << " = " << *result << std::endl;
-    return WasmResult::Ok;
-  }
+  proxy_wasm::WasmResult getHeaderMapValue(WasmHeaderMapType type, std::string_view key, std::string_view *result) override;
+  //  {
+  //   for (const auto& x: this->in_headers){
+  //     if (x.first == key.data()) {
+  //       *result = x.second;
+  //       break;
+  //     }
+  //   }
+  //   // std::cout << "getHeaderValue" << static_cast<int>(type) << " key " << key.data() << " = " << *result << std::endl;
+  //   return WasmResult::Ok;
+  // }
   proxy_wasm::WasmResult getHeaderMapPairs(WasmHeaderMapType type, Pairs *result) override;
   // proxy_wasm::WasmResult setHeaderMapPairs(WasmHeaderMapType type, const Pairs &pairs) override;
   // proxy_wasm::WasmResult removeHeaderMapValue(WasmHeaderMapType type, std::string_view key) override;
@@ -230,10 +231,20 @@ private:
   BufferBase buffer_;
   std::unordered_map<std::string, std::string> in_headers;
   std::unordered_map<std::string, std::string> out_headers;
+  wasm_vm_to_host_fns_t host_functions;
+  void *host_ctx = NULL;
   bool forward_direction;
+  bool isStream = false;
 };
 
 #define WASM_DEBUG_TAG "wasm"
+
+// typedef struct wasm_vm_integration_fns_t_ {
+//   // void (*log)(const char *tag, const char *fmt, ...);
+//   wasm_log_level_e (*get_log_level)();
+//   void (*set_log_level)(wasm_log_level_e log_level);
+// } wasm_vm_integration_fns_t;
+
 
 class ProxyWasmVmIntegration : public WasmVmIntegration
 {
@@ -250,8 +261,10 @@ public:
   void setLogLevel(proxy_wasm::LogLevel);
   void error(std::string_view message) override;
   void trace(std::string_view message) override;
+  void set_integration_functions(wasm_integration_fns_t *fns);
 private:
   proxy_wasm::LogLevel log_level = proxy_wasm::LogLevel::debug;
+  wasm_integration_fns_t integration_fns;
 };
 
 class Wasm : public WasmBase
@@ -263,7 +276,7 @@ public:
   Wasm(const std::shared_ptr<WasmHandleBase> &base_wasm_handle, const WasmVmFactory &factory);
 
   // start a new VM
-  Context *start(const std::shared_ptr<PluginBase> &plugin);
+  Context *start(const std::shared_ptr<PluginBase> &plugin, wasm_vm_to_host_fns_t *host_fns, void *host_ctx);
 
   // provide access to VM mutex
 //   TSMutex mutex() const;
@@ -276,6 +289,7 @@ public:
   ContextBase *createVmContext() override;
   ContextBase *createRootContext(const std::shared_ptr<PluginBase> &plugin) override;
   ContextBase *createContext(const std::shared_ptr<PluginBase> &plugin) override;
+  void configureHostFunctions(Context *context, wasm_vm_to_host_fns_t *host_fns, void *host_ctx);
 
   // functions managing timer
   bool existsTimerPeriod(uint32_t root_context_id);

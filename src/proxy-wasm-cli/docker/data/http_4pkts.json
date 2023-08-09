@@ -1,5 +1,5 @@
 [
-  {"sip": "10.0.0.2", "sp": "50124", "dip": "10.0.0.1", "dp": "443", "scheme": "https", "uri_path": "/content/web/index.html", "method": "GET", "query_params": {"a": "1"}, "headers": {"h1": "v1", "h2": "v2", "D": "5"}, "forward_direction": true, "delta_ms": 0},
+  {"sip": "10.0.0.2", "sp": "50124", "dip": "10.0.0.1", "dp": "443", "scheme": "https", "uri_path": "/content/web/index.html", "method": "GET", "query_params": {"a": "1"}, "headers": {"h1": "v1", "h2": "v2", "D": "5", "User-Agent": "Shell"}, "forward_direction": true, "delta_ms": 0},
   {"sip": "10.0.0.1", "sp": "443", "dip": "10.0.0.2", "dp": "50124", "scheme": "https", "uri_path": "/content/web/index.html", "headers": {"rh1": "rv1"}, "forward_direction": false, "delta_ms": 5, "body": "Hello World!"},
   {"sip": "10.0.0.2", "sp": "50125", "dip": "10.0.0.1", "dp": "443", "scheme": "https", "uri_path": "/content/web/10bytes.txt", "method": "GET", "headers": {"h11": "v11", "h21": "v21"}, "forward_direction": true, "delta_ms": 10},
   {"sip": "10.0.0.1", "sp": "443", "dip": "10.0.0.2", "dp": "50125", "scheme": "https", "uri_path": "/content/web/index.html", "headers": {"rh1": "rv1"}, "forward_direction": false, "delta_ms": 15, "body": "ABCDEFGHI"}

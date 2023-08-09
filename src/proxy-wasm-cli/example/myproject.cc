@@ -81,7 +81,7 @@ ExampleContext::onRequestHeaders(uint32_t headers, bool end_of_stream)
 
   // print UA
   auto ua = getRequestHeader("User-Agent");
-  logInfo(std::string("UA ") + std::string(ua->view()));
+  logInfo(std::string("UA -> ") + std::string({ua->data(), ua->size()}));
 
   // print # of headers
   logInfo(std::string("#headers ") + std::to_string(headers));

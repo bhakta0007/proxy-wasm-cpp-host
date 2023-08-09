@@ -2,7 +2,7 @@
 
 PROXY_WASM_CLI_PATH=${PROXY_WASM_CLI_PATH:-$(dirname $0)}
 VENV_FOLDER="venv"
-RT_FILE="requirements.txt"
+RT_FILE="docker/requirements.txt"
 VENV_PATH=${VENV_PATH:-${PROXY_WASM_CLI_PATH}}
 VENV=${VENV_PATH}/${VENV_FOLDER}
 RT_PATH=${VENV_PATH}/${RT_FILE}
@@ -41,7 +41,7 @@ then
     fi
 
     source ${VENV}/bin/activate
-    RESP=`pip freeze | egrep -v "pkg-resources" > .pipcheck.txt`
+    RESP=`pip freeze | egrep -v "pkg[-_]resources" > .pipcheck.txt`
     RET=$?
     if [ $RET -ne 0 ]
     then
@@ -50,7 +50,7 @@ then
         INSTALL_VENV=1
     fi
 
-    RESP=`diff requirements.txt .pipcheck.txt`
+    RESP=`diff $RT_FILE .pipcheck.txt`
     RET=$?
     if [ $RET -ne 0 ]
     then

@@ -136,9 +136,9 @@ class WasmHostClient(object):
         inputOptions = [
             {"key": "root_id", "title": "Project Name", "type": "string", "nullable": False},
             {"key": "name", "title": "Vm Name", "type": "string", "nullable": False},
-            {"key": "wasm_file", "title": "WASM File", "type": "string", "default": "/opt/wasm/myproject.wasm"},
+            {"key": "wasm_file", "title": "WASM File", "type": "string", "default": "/home/bhakta/dev/proxy-wasm-cpp-host/src/proxy-wasm-cli/example/myproject.wasm"},
             {"key": "log_level", "title": "Log Level", "type": "string", "default": "debug", "valid": ["debug", "trace", "info", "warn", "error", "critical"]},
-            {"key": "runtime", "title": "Runtime [wasmedge]", "type": "string", "valid": ["wasmedge"], "default": "wasmedge"},
+            {"key": "runtime", "title": "Runtime", "type": "string", "valid": ["wasmedge", "wasmtime", "wamr"], "default": "wasmtime"},
         ]
         inputs = getCliOptions(options=inputOptions)
         print(f"Inputs {inputs}")

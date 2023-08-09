@@ -1,1 +1,4 @@
 /bazel-*
+src/proxy-wasm-cli/dist/proxy-wasm-cli
+src/proxy-wasm-cli/docker/python-client
+*.o
